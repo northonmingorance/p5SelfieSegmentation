@@ -1,0 +1,141 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <!-- keep the line below for OpenProcessing compatibility -->
+    <script src="https://openprocessing.org/openprocessing_sketch.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+    <style>
+        html,body {
+            background: #000;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <video class="input_video"></video>
+    <script>
+
+        const videoElement = document.getElementsByClassName("input_video")[0];
+        videoElement.style.display = "none";
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await selfieSegmentation.send({ image: videoElement });
+            }
+        });
+        camera.start();
+
+        let bg;
+        let ctx;
+
+        let w = 640;
+        let h = 480;
+
+        function setup() {
+            canvasElement = createCanvas(windowWidth, windowHeight);
+            bg = createGraphics(canvasElement.width, canvasElement.height);
+            ctx = createGraphics(canvasElement.width, canvasElement.height);
+        }
+
+        function draw() {
+
+            background(0);
+
+            if (videoElement.videoWidth > 0) {
+                w = videoElement.videoWidth;
+                h = videoElement.videoHeight;
+            }
+
+            if (windowWidth / windowHeight >= w / h) {
+
+                nW = canvasElement.width;
+                nH = canvasElement.width / (w / h);
+                oX = 0;
+                oY = (canvasElement.height - nH) / 2;
+
+            } else {
+
+                nW = canvasElement.height * (w / h);
+                nH = canvasElement.height;
+                oX = (canvasElement.width - nW) / 2;
+                oY = 0;
+
+            }
+
+            image(bg, oX, oY, nW, nH);
+            image(ctx, oX + (windowWidth / 8), oY, nW, nH);
+            image(ctx, oX - (windowWidth / 8), oY, nW, nH);
+            image(ctx, oX, oY, nW, nH);
+        }
+
+        function windowResized() {
+
+            canvasElement = createCanvas(windowWidth, windowHeight);
+            bg = createGraphics(canvasElement.width, canvasElement.height);
+            ctx = createGraphics(canvasElement.width, canvasElement.height);
+
+        }
+
+        function onResults(results) {
+
+            //BG
+
+            bg.drawingContext.save();
+
+            bg.drawingContext.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+            //bg.drawingContext.filter = 'blur(7px) saturate(120%) contrast(150%)';
+            bg.drawingContext.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            bg.drawingContext.restore();
+
+            //FG
+
+            ctx.drawingContext.save();
+
+            ctx.drawingContext.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+            // Mask
+            ctx.drawingContext.drawImage(results.segmentationMask, 0, 0, canvasElement.width, canvasElement.height);
+
+            // Selfie
+            ctx.drawingContext.globalCompositeOperation = 'source-in';
+            //ctx.drawingContext.filter = 'blur(0px) saturate(100%) contrast(110%)';
+            ctx.drawingContext.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            // Background
+            //ctx.drawingContext.globalCompositeOperation = 'source-out';
+            //ctx.drawingContext.filter = 'blur(7px) brightness(110%) contrast(120%)';
+            //ctx.drawingContext.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            //ctx.drawingContext.fillStyle = 'rgba(255,255,255, 1)';
+            //ctx.drawingContext.fillRect(0, 0, canvasElement.width, canvasElement.height);
+
+            ctx.drawingContext.restore();
+
+        }
+
+        const selfieSegmentation = new SelfieSegmentation({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`;
+            }
+        });
+
+        selfieSegmentation.setOptions({
+            modelSelection: 0,
+        });
+
+        selfieSegmentation.onResults(onResults);
+
+    </script>
+</body>
+
+</html>
